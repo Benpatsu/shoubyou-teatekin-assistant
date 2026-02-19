@@ -11,7 +11,7 @@
 
 ## 1) まず GitHub Pages を有効化
 
-このリポジトリに push すると、`work` ブランチをトリガーに
+このリポジトリに push すると、`main` / `master` / `work` ブランチをトリガーに
 GitHub Actions が Pages へデプロイします。
 
 ワークフロー: `.github/workflows/deploy-pages.yml`
@@ -30,7 +30,25 @@ https://benpatsu.github.io/shoubyou-teatekin-assistant/kintone-customize/mobile-
 
 ---
 
-## 3) loader がやっていること
+## 3) URLを開いて「なにもない/404」のとき
+
+これはよくあります。次を確認してください。
+
+1. **GitHub Actions が成功しているか**
+   - `Actions` タブで `Deploy static files to GitHub Pages` が成功していること
+2. **Pages の公開設定が有効か**
+   - `Settings > Pages` で `Build and deployment: GitHub Actions` になっていること
+3. **正しいURLか**
+   - 末尾が `.../kintone-customize/mobile-table-align-loader.js` か
+4. **反映待ち**
+   - 初回は1〜数分かかることがあります
+
+「真っ白」に見えても、JSファイルはテキスト1行なので正常な場合があります。
+URLを開いて JS コード（`(function(){...`) が表示されればOKです。
+
+---
+
+## 4) loader がやっていること
 
 - 自分自身（loader.js）の URL から同じディレクトリを特定
 - 同じ場所の `mobile-table-align.js` を読み込み
@@ -40,7 +58,7 @@ https://benpatsu.github.io/shoubyou-teatekin-assistant/kintone-customize/mobile-
 
 ---
 
-## 4) align 本体（fieldCode 優先）
+## 5) align 本体（fieldCode 優先）
 
 `mobile-table-align.js` の `CONFIG` で、可能なら `fieldCode` を埋めてください。
 `labelText` より安定します。
@@ -61,7 +79,7 @@ var CONFIG = {
 
 ---
 
-## 5) 最終チェック
+## 6) 最終チェック
 
 - kintone のスマホ用 JavaScript に上記 loader URL が入っている
 - アプリ更新を押した
