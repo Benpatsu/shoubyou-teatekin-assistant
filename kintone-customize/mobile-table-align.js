@@ -2,23 +2,30 @@
   'use strict';
 
   /**
-   * 重要:
-   * - まず fieldCode モードを設定する（最も安定）
-   * - 未設定時のみ labelText フォールバックを使う
+   * スマホで「変わらない」対策版
+   * 優先順位:
+   *  1) fieldCode
+   *  2) sectionText + labelText
+   *  3) labelText + occurrence
    */
   var CONFIG = {
-    // フィールドコードが分かる場合はこちらを使う（推奨）
-    // 例: base: { fieldCode: 'TOTAL_OURS' }
-    base: { fieldCode: '', labelText: '当社売上合計' },
+    base: {
+      fieldCode: '',
+      sectionText: '税込合計',
+      labelText: '当社売上合計',
+      occurrence: 0
+    },
     targets: [
-      { fieldCode: '', labelText: '当社売上合計', occurrence: 1 },
-      { fieldCode: '', labelText: '当社売上税額', occurrence: 0 }
+      { fieldCode: '', sectionText: '税別', labelText: '当社売上合計', occurrence: 1 },
+      { fieldCode: '', sectionText: '税額(10%)', labelText: '当社売上税額', occurrence: 0 }
     ],
 
     fineTunePx: 0,
-    shiftScale: 0.65,
-    maxShiftPx: 72,
-    debug: false
+    shiftScale: 0.75,
+    maxShiftPx: 96,
+
+    // true にするとコンソールに検出状況を出力
+    debug: true
   };
 
   var MARK_ATTR = 'data-k-mobile-align-shift';
@@ -40,6 +47,17 @@
     return String(text || '').replace(/\s+/g, '').trim();
   }
 
+  function qAll() {
+    return toArray(document.querySelectorAll('div, span, th, td, label'));
+  }
+
+  function findTextNodes(text) {
+    var t = normalize(text);
+    return qAll().filter(function (el) {
+      return normalize(el.textContent) === t;
+    });
+  }
+
   function clampRight(px) {
     var v = Math.max(0, px);
     var max = Number(CONFIG.maxShiftPx || 0);
@@ -51,34 +69,87 @@
     return el.getBoundingClientRect().left;
   }
 
+  function top(el) {
+    return el.getBoundingClientRect().top;
+  }
+
   function findByFieldCode(fieldCode) {
     if (!fieldCode) return null;
     var root = document.querySelector('[data-field-code="' + fieldCode + '"]');
     if (!root) return null;
-    // innerが移動しやすい
     return root.querySelector('div, span') || root;
   }
 
-  function findByLabel(labelText, occurrence) {
-    var target = normalize(labelText);
-    var nodes = toArray(document.querySelectorAll('div, span, th, td, label')).filter(function (el) {
-      return normalize(el.textContent) === target;
-    });
-    var node = nodes[occurrence || 0];
+  function findNearestCell(node) {
     if (!node || !node.closest) return null;
-
     var cell =
       node.closest('.subtable-cell-gaia') ||
       node.closest('.recordlist-cell-gaia') ||
       node.closest('td') ||
       node.closest('th');
-
     if (!cell) return node;
     return cell.querySelector('div, span') || cell.firstElementChild || cell;
   }
 
-  function resolveTarget(def) {
-    return findByFieldCode(def.fieldCode) || findByLabel(def.labelText, def.occurrence);
+  function findByLabel(labelText, occurrence) {
+    var nodes = findTextNodes(labelText);
+    var node = nodes[occurrence || 0];
+    if (!node) return null;
+    return findNearestCell(node);
+  }
+
+  function findBySectionAndLabel(sectionText, labelText) {
+    if (!sectionText || !labelText) return null;
+
+    var sectionNodes = findTextNodes(sectionText);
+    if (!sectionNodes.length) return null;
+
+    sectionNodes.sort(function (a, b) { return top(a) - top(b); });
+    var sectionNode = sectionNodes[0];
+    var sectionTop = top(sectionNode);
+
+    var knownSectionTops = [];
+    var allSectionNames = [CONFIG.base.sectionText].concat(CONFIG.targets.map(function (x) { return x.sectionText; }));
+    allSectionNames.forEach(function (name) {
+      if (!name) return;
+      findTextNodes(name).forEach(function (n) {
+        var t = top(n);
+        if (t > sectionTop) knownSectionTops.push(t);
+      });
+    });
+    knownSectionTops.sort(function (a, b) { return a - b; });
+    var nextTop = knownSectionTops.length ? knownSectionTops[0] : Infinity;
+
+    var candidates = findTextNodes(labelText).filter(function (n) {
+      var t = top(n);
+      return t > sectionTop && t < nextTop;
+    });
+
+    if (!candidates.length) return null;
+    candidates.sort(function (a, b) { return top(a) - top(b); });
+    return findNearestCell(candidates[0]);
+  }
+
+  function resolve(def) {
+    var byCode = findByFieldCode(def.fieldCode);
+    if (byCode) {
+      log('resolved by fieldCode', def.fieldCode);
+      return byCode;
+    }
+
+    var bySection = findBySectionAndLabel(def.sectionText, def.labelText);
+    if (bySection) {
+      log('resolved by section+label', def.sectionText, def.labelText);
+      return bySection;
+    }
+
+    var byLabel = findByLabel(def.labelText, def.occurrence);
+    if (byLabel) {
+      log('resolved by label+occurrence', def.labelText, def.occurrence);
+      return byLabel;
+    }
+
+    return null;
   }
 
   function clearShift() {
@@ -88,6 +159,7 @@
       el.style.removeProperty('left');
       el.style.removeProperty('transform');
       el.style.removeProperty('transition');
+      el.style.removeProperty('outline');
     });
   }
 
@@ -101,24 +173,29 @@
     el.style.setProperty('transform', 'translateX(' + delta + 'px)', 'important');
     el.style.setProperty('transition', 'none', 'important');
 
-    log('shift applied', { rawDelta: rawDelta, scaled: scaled, final: delta, el: el });
+    if (CONFIG.debug) {
+      el.style.setProperty('outline', '1px dashed #2b8a3e', 'important');
+    }
+
+    log('shift applied', { rawDelta: rawDelta, scaled: scaled, final: delta });
   }
 
   function applyAlignment() {
     clearShift();
 
-    var baseEl = resolveTarget(CONFIG.base);
+    var baseEl = resolve(CONFIG.base);
     if (!baseEl) {
-      log('base not found. fieldCode推奨。');
+      log('base not found', CONFIG.base);
       return;
     }
 
     var baseLeft = left(baseEl);
+    log('base left', baseLeft);
 
-    CONFIG.targets.forEach(function (targetDef) {
-      var targetEl = resolveTarget(targetDef);
+    CONFIG.targets.forEach(function (targetDef, idx) {
+      var targetEl = resolve(targetDef);
       if (!targetEl) {
-        log('target not found', targetDef);
+        log('target not found', idx, targetDef);
         return;
       }
 
