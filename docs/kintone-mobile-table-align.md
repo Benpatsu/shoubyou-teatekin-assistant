@@ -18,19 +18,15 @@ GitHub Actions が Pages へデプロイします。
 
 ---
 
-## 2) kintone に登録する URL
+## 2) kintone に登録する URL（Benpatsu さん用）
 
 kintone（スマホ用JavaScript）には **loader のURLだけ** 登録します。
 
 ```text
-https://<GitHubユーザー名>.github.io/<リポジトリ名>/kintone-customize/mobile-table-align-loader.js
+https://benpatsu.github.io/shoubyou-teatekin-assistant/kintone-customize/mobile-table-align-loader.js
 ```
 
-例（リポジトリ名が `shoubyou-teatekin-assistant` の場合）:
-
-```text
-https://<GitHubユーザー名>.github.io/shoubyou-teatekin-assistant/kintone-customize/mobile-table-align-loader.js
-```
+> GitHubユーザー名 `Benpatsu` は Pages URL では通常小文字で `benpatsu` になります。
 
 ---
 
@@ -62,3 +58,11 @@ var CONFIG = {
   debug: false
 };
 ```
+
+---
+
+## 5) 最終チェック
+
+- kintone のスマホ用 JavaScript に上記 loader URL が入っている
+- アプリ更新を押した
+- モバイルを再読み込みした
