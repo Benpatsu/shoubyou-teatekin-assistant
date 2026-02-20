@@ -15,7 +15,7 @@
     // 基準: 税込合計テーブル内の「当社売上合計」ラベル
     base: {
       sectionLabel: '税込合計',           // テーブルのセクション名
-      targetLabel:  '当社売上合計'        // 位置を取るラベル名
+      targetLabel: '当社売上合計'        // 位置を取るラベル名
     },
 
     // シフト対象テーブル
@@ -27,7 +27,7 @@
     // リトライ (ms): DOM描画やプラグインの遅延に対応
     retryDelays: [0, 200, 500, 1000, 2000, 3500],
 
-    debug: true
+    debug: false
   };
 
   var APPLIED_ATTR = 'data-k-mobile-align-done';
@@ -258,7 +258,7 @@
         // 自分のシフトによる変更は無視
         var selfCaused = mutations.every(function (m) {
           return m.type === 'attributes' &&
-                 (m.attributeName === 'style' || m.attributeName === APPLIED_ATTR);
+            (m.attributeName === 'style' || m.attributeName === APPLIED_ATTR);
         });
         if (selfCaused) return;
         scheduleApply();
