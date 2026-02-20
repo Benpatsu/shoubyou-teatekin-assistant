@@ -18,10 +18,15 @@
       targetLabel: '当社売上合計'        // 位置を取るラベル名
     },
 
-    // シフト対象テーブル
+    // シフト対象テーブル (subtable-gaia)
     targets: [
       { sectionLabel: '税別' },
       { sectionLabel: '税額(10%)' }
+    ],
+
+    // シフト対象フィールド (通常フィールド, 親の row-gaia ごとシフト)
+    fieldTargets: [
+      { labelText: '当社売上(税抜) 調整' }
     ],
 
     // リトライ (ms): DOM描画やプラグインの遅延に対応
@@ -218,6 +223,56 @@
 
         log('✓ target', idx, '(' + targetDef.sectionLabel + ') shifted by', shift, 'px');
       });
+
+      // ── 通常フィールドのシフト ──
+      if (CONFIG.fieldTargets) {
+        CONFIG.fieldTargets.forEach(function (fieldDef, idx) {
+          var fieldLabels = findLeafByText(fieldDef.labelText);
+          if (!fieldLabels.length) {
+            log('❌ field label not found:', fieldDef.labelText);
+            return;
+          }
+
+          var fieldLabel = fieldLabels[0];
+          // 親の row-gaia コンテナを探す
+          var rowContainer = fieldLabel.closest
+            ? fieldLabel.closest('.row-gaia')
+            : null;
+          if (!rowContainer) {
+            // フォールバック: 親をたどる
+            var node = fieldLabel;
+            for (var d = 0; d < 8; d++) {
+              if (!node.parentElement) break;
+              node = node.parentElement;
+              if (node.classList && node.classList.contains('row-gaia')) {
+                rowContainer = node;
+                break;
+              }
+            }
+          }
+          if (!rowContainer) {
+            log('❌ row container not found for:', fieldDef.labelText);
+            return;
+          }
+
+          var fieldLeft = fieldLabel.getBoundingClientRect().left;
+          var shift = baseLeft - fieldLeft;
+
+          if (Math.abs(shift) < 2) {
+            log('→ field', idx, 'already aligned, skip');
+            return;
+          }
+
+          rowContainer.style.setProperty('margin-left', shift + 'px', 'important');
+          rowContainer.setAttribute(APPLIED_ATTR, '1');
+
+          if (CONFIG.debug) {
+            rowContainer.style.setProperty('outline', '2px dashed #e67700', 'important');
+          }
+
+          log('✓ field', idx, '(' + fieldDef.labelText + ') row shifted by', shift, 'px');
+        });
+      }
 
     } finally {
       isApplying = false;
